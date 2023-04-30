@@ -1,0 +1,66 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prom
+    access: proxy
+    url: http://host.docker.internal:9090
+    editable: false
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+  - name: Tempo
+    type: tempo
+    access: proxy
+    orgId: 1
+    url: http://tempo:3200
+    basicAuth: false
+    isDefault: true
+    version: 1
+    editable: false
+    apiVersion: 1
+    uid: tempo
+    jsonData:
+      httpMethod: GET
+      tracesToLogs:
+        datasourceUid: 'loki'
+        mappedTags: [ { key: 'service.name',value: 'app' } ]  # maps the tracing tag named service.name to the log label named app
+        mapTagNamesEnabled: true # that was required!
+        filterByTraceID: true
+        filterBySpanID: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+      lokiSearch:
+        datasourceUid: 'loki'
+      tracesToMetrics:
+        datasourceUid: prom # TODO this works but the queries do not make sense
+        tags: [ { key: "service.name", value: "app" } ]
+        queries:
+          - name: 'Throughput'
+            query: 'sum(rate(http_server_requests_seconds_count{$$__tags}[$$__interval]))'
+          - name: 'Latency'
+            query: 'http_server_requests_seconds_max{$$__tags}'
+      serviceMap:
+        datasourceUid: 'prom' # TODO this is still not working
+      nodeGraph:
+        enabled: true
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    orgId: 1
+    url: http://loki:3100
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: false
+    apiVersion: 1
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: \[{.+,(.+?),.+}] # to match trace id in pattern:  "user: %X{userId} %5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+          name: TraceID
+          url: $${__value.raw}

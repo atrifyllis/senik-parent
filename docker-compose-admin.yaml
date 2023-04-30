@@ -1,0 +1,16 @@
+version: "3"
+services:
+
+  db-admin:
+    image: debezium/postgres:14
+    ports:
+      - "65433:5432"
+    environment:
+      POSTGRES_USER: "senik"
+      POSTGRES_PASSWORD: "senik"
+      POSTGRES_DB: "senik-admin"
+    volumes:
+      - senik-admin-volume:/var/lib/postgresql/data
+
+volumes:
+  senik-admin-volume:

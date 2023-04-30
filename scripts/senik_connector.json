@@ -1,0 +1,23 @@
+{
+  "name": "senik_outbox_connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "db",
+    "database.port": "5432",
+    "database.user": "senik",
+    "database.password": "senik",
+    "database.dbname": "senik",
+    "database.server.name": "db",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "tombstones.on.delete": "false",
+    "table.include.list": "public.persisted_event",
+    "topic.prefix": "senik",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.route.topic.replacement": "senik.events"
+  }
+}

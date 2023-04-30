@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: [ 'host.docker.internal:9090' ]
+  - job_name: 'senik'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'host.docker.internal:8080' ] # TODO no security here
+  - job_name: 'senik-admin'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: [ 'host.docker.internal:8082' ] # TODO no security here
+  - job_name: "kafka-broker"
+    static_configs:
+      - targets:
+          - "kafka:1234"
+        labels:
+          env: "dev"
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        regex: '([^:]+)(:[0-9]+)?'
+        replacement: '${1}'
