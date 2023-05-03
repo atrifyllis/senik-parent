@@ -30,10 +30,12 @@ services:
     image: debezium/connect:latest
     ports:
       - "8083:8083"
+      - "5005:5005"
     depends_on:
       - kafka
-      - db
+#      - db
     environment:
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: senik-debezium-connect-group
       # optional vars:
