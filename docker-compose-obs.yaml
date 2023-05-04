@@ -28,7 +28,7 @@ services:
     image: prom/prometheus
     extra_hosts: [ 'host.docker.internal:host-gateway' ]
     command:
-      - --enable-feature=exemplar-storage
+      - --enable-feature=exemplar-storage,remote-write-receiver
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./obs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
