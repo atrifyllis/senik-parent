@@ -1,5 +1,5 @@
 import {Construct} from 'constructs';
-import {App, Chart} from 'cdk8s';
+import {App, Chart, Size} from 'cdk8s';
 import * as kafkaStrimzi from './imports/kafka-kafka.strimzi.io';
 import {
     KafkaSpecKafkaListenersType,
@@ -9,17 +9,57 @@ import {
 } from './imports/kafka-kafka.strimzi.io';
 import * as kafkaConnector from './imports/kafka-connector-kafka.strimzi.io';
 import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
-import {
-    KafkaConnectSpecBuildOutputType,
-    KafkaConnectSpecBuildPluginsArtifactsType
-} from './imports/kafka-connect-kafka.strimzi.io';
+
+
+import * as kplus from 'cdk8s-plus-25';
+import {EnvValue, PersistentVolumeAccessMode} from 'cdk8s-plus-25';
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
         const internalPort = 9092;
-        const debeziumVersion = '2.2.1.Final';
+        // const debeziumVersion = '2.2.1.Final';
+        const senikDbPort = '5432';
+
+
+        const senikDb = new kplus.Deployment(this, 'senik-db', {
+            replicas: 1,
+            containers: [
+                {
+                    securityContext: {
+                        ensureNonRoot: false, // TODO not safe but wont work without it
+                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
+                    },
+                    image: 'debezium/postgres:14',
+                    portNumber: 5432,
+                    envVariables: {
+                        'POSTGRES_USER': EnvValue.fromValue('senik'),
+                        'POSTGRES_PASSWORD': EnvValue.fromValue('senik'),
+                        'POSTGRES_DB': EnvValue.fromValue('senik')
+                    },
+                },
+            ],
+
+        });
+        // create the storage request
+        const senikDbClaim = new kplus.PersistentVolumeClaim(this, 'senik-db-pvc', {
+            storage: Size.gibibytes(1),
+            accessModes: [
+                PersistentVolumeAccessMode.READ_WRITE_ONCE
+            ]
+        });
+        // mount a volume based on the request to the container
+        // this will also add the volume itself to the pod spec.
+        senikDb.containers[0].mount(
+            '/var/lib/postgresql/data',
+            kplus.Volume.fromPersistentVolumeClaim(this, 'db-senik-volume', senikDbClaim),
+            {
+                subPath: 'postgres'
+            }
+        );
+
+        const senikDbService = senikDb.exposeViaService({ports: [{port: 5432}]});
 
         const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
             spec: {
@@ -59,7 +99,7 @@ export class MyChart extends Chart {
                             {
                                 id: 0,
                                 type: KafkaSpecKafkaStorageVolumesType.PERSISTENT_CLAIM,
-                                size: '10Gi',
+                                size: '1Gi',
                             }
                         ]
                     },
@@ -72,19 +112,20 @@ export class MyChart extends Chart {
                     replicas: 1,
                     storage: {
                         type: KafkaSpecZookeeperStorageType.PERSISTENT_CLAIM,
-                        size: '10Gi'
+                        size: '1Gi'
                     }
                 }
             }
         });
 
-        new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
+        const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
             metadata: {
                 annotations: {
                     'strimzi.io/use-connector-resources': 'true' // needed to enable kafka connectors
                 }
             },
             spec: {
+                image: 'otinanism/strimzi-connect',
                 replicas: 1,
                 bootstrapServers: `${kafka.name}-kafka-bootstrap:${internalPort}`,
                 config: {
@@ -96,37 +137,42 @@ export class MyChart extends Chart {
                     'offset.storage.replication.factor': 1,
                     'status.storage.replication.factor': 1
                 },
-                build: {
-                    output: {
-                        image: 'otinanism/strimzi-connect',
-                        type: KafkaConnectSpecBuildOutputType.DOCKER,
-                        pushSecret: 'regcred'
-                    },
-                    plugins: [
-                        {
-                            name: 'debezium-postgres-connector',
-                            artifacts: [
-                                {
-                                    type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
-                                    url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
-                                }
-                            ]
-                        }
-                    ]
-                }
+                // TODO uncomment if image is not available
+                // build: {
+                //     output: {
+                //         image: 'otinanism/strimzi-connect',
+                //         type: KafkaConnectSpecBuildOutputType.DOCKER,
+                //         pushSecret: 'regcred'
+                //     },
+                //     plugins: [
+                //         {
+                //             name: 'debezium-postgres-connector',
+                //             artifacts: [
+                //                 {
+                //                     type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
+                //                     url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
+                //                 }
+                //             ]
+                //         }
+                //     ]
+                // }
 
             }
         });
 
         new kafkaConnector.KafkaConnector(this, 'postgres-sink-kafka-connector', {
             metadata: {
-                name: 'senik-outbox-connector'
+                name: 'senik-outbox-connector',
+                labels: {
+                    'strimzi.io/cluster': kafkaConnect.name // required!
+                }
             },
             spec: {
+                class: 'io.debezium.connector.postgresql.PostgresConnector',
                 config: {
                     'connector.class': 'io.debezium.connector.postgresql.PostgresConnector',
-                    'database.hostname': 'db',
-                    'database.port': '5432',
+                    'database.hostname': senikDbService.name,
+                    'database.port': senikDbPort,
                     'database.user': 'senik',
                     'database.password': 'senik',
                     'database.dbname': 'senik',
