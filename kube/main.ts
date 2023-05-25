@@ -9,12 +9,18 @@ import {
 } from './imports/kafka-kafka.strimzi.io';
 import * as kafkaConnector from './imports/kafka-connector-kafka.strimzi.io';
 import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
+import {
+    KafkaConnectSpecBuildOutputType,
+    KafkaConnectSpecBuildPluginsArtifactsType
+} from './imports/kafka-connect-kafka.strimzi.io';
 
-class MyChart extends Chart {
+export class MyChart extends Chart {
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
         const internalPort = 9092;
+        const debeziumVersion = '2.2.1.Final';
+
         const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
             spec: {
 
@@ -79,15 +85,36 @@ class MyChart extends Chart {
                 }
             },
             spec: {
-                image: 'debezium/connect:latest',
                 replicas: 1,
                 bootstrapServers: `${kafka.name}-kafka-bootstrap:${internalPort}`,
                 config: {
                     'group.id': 'senik-debezium-connect-group',
                     'offset.storage.topic': 'senik-debezium-offsets',
                     'config.storage.topic': 'senik-debezium-config',
-                    'status.storage.topic': 'senik-debezium-status'
+                    'status.storage.topic': 'senik-debezium-status',
+                    'config.storage.replication.factor': 1,
+                    'offset.storage.replication.factor': 1,
+                    'status.storage.replication.factor': 1
+                },
+                build: {
+                    output: {
+                        image: 'otinanism/strimzi-connect',
+                        type: KafkaConnectSpecBuildOutputType.DOCKER,
+                        pushSecret: 'regcred'
+                    },
+                    plugins: [
+                        {
+                            name: 'debezium-postgres-connector',
+                            artifacts: [
+                                {
+                                    type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
+                                    url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
+                                }
+                            ]
+                        }
+                    ]
                 }
+
             }
         });
 
