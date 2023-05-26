@@ -18,7 +18,7 @@ export class MyChart extends Chart {
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
-        const internalPort = 9092;
+        const kafkaInternalPort = 9092;
         // const debeziumVersion = '2.2.1.Final';
         const senikDbPort = '5432';
 
@@ -69,7 +69,7 @@ export class MyChart extends Chart {
                     listeners: [
                         {
                             name: 'plain',
-                            port: internalPort,
+                            port: kafkaInternalPort,
                             type: KafkaSpecKafkaListenersType.INTERNAL,
                             tls: false,
 
@@ -118,6 +118,8 @@ export class MyChart extends Chart {
             }
         });
 
+        let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${kafkaInternalPort}`;
+
         const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
             metadata: {
                 annotations: {
@@ -127,7 +129,7 @@ export class MyChart extends Chart {
             spec: {
                 image: 'otinanism/strimzi-connect',
                 replicas: 1,
-                bootstrapServers: `${kafka.name}-kafka-bootstrap:${internalPort}`,
+                bootstrapServers: kafkaBootstrapServers,
                 config: {
                     'group.id': 'senik-debezium-connect-group',
                     'offset.storage.topic': 'senik-debezium-offsets',
@@ -192,6 +194,35 @@ export class MyChart extends Chart {
                 }
             }
         });
+
+        let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
+
+        const kafkaUi = new kplus.Deployment(this, 'kafka-ui', {
+            replicas: 1,
+            containers: [
+                {
+                    securityContext: {
+                        ensureNonRoot: false
+                    },
+                    image: 'provectuslabs/kafka-ui:latest',
+                    portNumber: 8080,
+                    envVariables: {
+                        'KAFKA_CLUSTERS_0_NAME': EnvValue.fromValue('local'),
+                        'KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS': EnvValue.fromValue(kafkaBootstrapServers),
+                        'KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME': EnvValue.fromValue(kafkaConnect.name),
+                        'KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS': EnvValue.fromValue(kafkaConnectAddress),
+                        'DYNAMIC_CONFIG_ENABLED': EnvValue.fromValue('true')
+                    }
+                }
+            ]
+        });
+
+        let kafkaUiService = kafkaUi.exposeViaService({ports: [{port: 8080 }]});
+        const ingress = new kplus.Ingress(this, 'kafka-ui-ingress');
+        ingress.addRule('/', kplus.IngressBackend.fromService(kafkaUiService));
+
+
+
 
     }
 }
