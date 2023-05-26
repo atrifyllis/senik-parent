@@ -12,16 +12,19 @@ import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
 
 
 import * as kplus from 'cdk8s-plus-25';
-import {EnvValue, PersistentVolumeAccessMode} from 'cdk8s-plus-25';
+import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode} from 'cdk8s-plus-25';
+
+
+const KAFKA_INTERNAL_PORT = 9092;
+
+const SENIK_DB_PORT = '5432';
+
+const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
+
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string) {
         super(scope, id);
-
-        const kafkaInternalPort = 9092;
-        // const debeziumVersion = '2.2.1.Final';
-        const senikDbPort = '5432';
-
 
         const senikDb = new kplus.Deployment(this, 'senik-db', {
             replicas: 1,
@@ -69,7 +72,7 @@ export class MyChart extends Chart {
                     listeners: [
                         {
                             name: 'plain',
-                            port: kafkaInternalPort,
+                            port: KAFKA_INTERNAL_PORT,
                             type: KafkaSpecKafkaListenersType.INTERNAL,
                             tls: false,
 
@@ -118,7 +121,7 @@ export class MyChart extends Chart {
             }
         });
 
-        let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${kafkaInternalPort}`;
+        let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
         const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
             metadata: {
@@ -174,7 +177,7 @@ export class MyChart extends Chart {
                 config: {
                     'connector.class': 'io.debezium.connector.postgresql.PostgresConnector',
                     'database.hostname': senikDbService.name,
-                    'database.port': senikDbPort,
+                    'database.port': SENIK_DB_PORT,
                     'database.user': 'senik',
                     'database.password': 'senik',
                     'database.dbname': 'senik',
@@ -217,12 +220,11 @@ export class MyChart extends Chart {
             ]
         });
 
-        let kafkaUiService = kafkaUi.exposeViaService({ports: [{port: 8080 }]});
+        let kafkaUiService = kafkaUi.exposeViaService({ports: [{port: 8080}]});
         const ingress = new kplus.Ingress(this, 'kafka-ui-ingress');
-        ingress.addRule('/', kplus.IngressBackend.fromService(kafkaUiService));
+        // TODO this is so ugly
 
-
-
+        ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
     }
 }
