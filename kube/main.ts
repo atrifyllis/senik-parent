@@ -12,7 +12,7 @@ import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
 
 
 import * as kplus from 'cdk8s-plus-25';
-import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode} from 'cdk8s-plus-25';
+import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode, ServiceType} from 'cdk8s-plus-25';
 
 
 const KAFKA_INTERNAL_PORT = 9092;
@@ -62,7 +62,11 @@ export class MyChart extends Chart {
             }
         );
 
-        const senikDbService = senikDb.exposeViaService({ports: [{port: 5432}]});
+        // db exposed as node service to one of the available host ports (30020)
+        const senikDbService = senikDb.exposeViaService({
+            ports: [{port: 5432, nodePort: 30020}],
+            serviceType: ServiceType.NODE_PORT
+        });
 
         const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
             spec: {
