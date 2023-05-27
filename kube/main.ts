@@ -1,8 +1,9 @@
 import {Construct} from 'constructs';
-import {App, Chart, Size} from 'cdk8s';
+import {App, Chart, Include, Size} from 'cdk8s';
 import * as kafkaStrimzi from './imports/kafka-kafka.strimzi.io';
 import {
     KafkaSpecKafkaListenersType,
+    KafkaSpecKafkaMetricsConfigType,
     KafkaSpecKafkaStorageType,
     KafkaSpecKafkaStorageVolumesType,
     KafkaSpecZookeeperStorageType
@@ -68,6 +69,15 @@ export class MyChart extends Chart {
             serviceType: ServiceType.NODE_PORT
         });
 
+        // I could not find a way to create configmap with file-like keys in cdk8s.
+        // this config map is only needed by strimzi to enable prometheus. what a mess...
+
+        // From strimzi docs: "You can enable metrics without further configuration using a reference to a ConfigMap
+        // containing an empty file under metricsConfig.valueFrom.configMapKeyRef.key."
+        const dummyKafkaConfigMap = new Include(this, 'dummy-configmap', {
+            url: 'dummy-configmap.yaml'
+        });
+
         const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
             spec: {
 
@@ -112,8 +122,16 @@ export class MyChart extends Chart {
                     },
                     config: {
                         'offsets.topic.replication.factor': 1
+                    },
+                    metricsConfig: {
+                        type: KafkaSpecKafkaMetricsConfigType.JMX_PROMETHEUS_EXPORTER,
+                        valueFrom: {
+                            configMapKeyRef: {
+                                name: this.getNameFromConfigMap(dummyKafkaConfigMap),
+                                key: 'dummy'
+                            }
+                        }
                     }
-
                 },
                 zookeeper: {
                     replicas: 1,
@@ -230,6 +248,10 @@ export class MyChart extends Chart {
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
+    }
+
+    private getNameFromConfigMap(configMap: Include) {
+        return configMap.apiObjects.find(c => c.kind === 'ConfigMap')?.name;
     }
 }
 
