@@ -1,5 +1,5 @@
 import {Construct} from 'constructs';
-import {App, Chart, Include, Size} from 'cdk8s';
+import {App, Chart, Size} from 'cdk8s';
 import * as kafkaStrimzi from './imports/kafka-kafka.strimzi.io';
 import {
     KafkaSpecKafkaListenersType,
@@ -21,6 +21,7 @@ const KAFKA_INTERNAL_PORT = 9092;
 const SENIK_DB_PORT = '5432';
 
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
+// const PROM_LOCAL_ADDRESS = 'prom.127.0.0.1.nip.io';
 
 
 export class MyChart extends Chart {
@@ -69,17 +70,15 @@ export class MyChart extends Chart {
             serviceType: ServiceType.NODE_PORT
         });
 
-        // I could not find a way to create configmap with file-like keys in cdk8s.
         // this config map is only needed by strimzi to enable prometheus. what a mess...
-
         // From strimzi docs: "You can enable metrics without further configuration using a reference to a ConfigMap
         // containing an empty file under metricsConfig.valueFrom.configMapKeyRef.key."
-        const dummyKafkaConfigMap = new Include(this, 'dummy-configmap', {
-            url: 'dummy-configmap.yaml'
-        });
+        let dummyKafkaConfigMap = new kplus.ConfigMap(this, 'dummy-configmap', {});
+        dummyKafkaConfigMap.addFile('empty-file.yaml', 'dummy');
 
         const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
             spec: {
+
 
                 kafka: {
                     replicas: 1,
@@ -127,7 +126,7 @@ export class MyChart extends Chart {
                         type: KafkaSpecKafkaMetricsConfigType.JMX_PROMETHEUS_EXPORTER,
                         valueFrom: {
                             configMapKeyRef: {
-                                name: this.getNameFromConfigMap(dummyKafkaConfigMap),
+                                name: dummyKafkaConfigMap.name,
                                 key: 'dummy'
                             }
                         }
@@ -142,6 +141,8 @@ export class MyChart extends Chart {
                 }
             }
         });
+
+
 
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
@@ -248,10 +249,72 @@ export class MyChart extends Chart {
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
-    }
+      /*  const prometheusConfigMap = new kplus.ConfigMap(this, 'prometheus-configmap', {
+            data: {
+                'prometheus.yaml': `
+                    global:
+                      scrape_interval: 2s
+                      evaluation_interval: 2s
+                    
+                    scrape_configs:
+                      - job_name: 'prometheus'
+                        static_configs:
+                          - targets: [ 'localhost:9090' ]
+                      - job_name: 'senik'
+                        metrics_path: '/actuator/prometheus'
+                        static_configs:
+                          - targets: [ 'host.k3d.internal:8080' ] # TODO no security here
+                      - job_name: 'senik-admin'
+                        metrics_path: '/actuator/prometheus'
+                        static_configs:
+                          - targets: [ 'host.k3d.internal:8082' ] # TODO no security here
+                      - job_name: "kafka-broker"
+                        static_configs:
+                          - targets:
+                              - "${kafka.name}:9404"
+                            labels:
+                              env: "dev"
+                        relabel_configs:
+                          - source_labels: [ __address__ ]
+                            target_label: instance
+                            regex: '([^:]+)(:[0-9]+)?'
+                            replacement: '${1}'                    
+                `
+            }
+        });*/
+        // prometheusConfigMap.addFile('../obs/prometheus.yml', 'prometheus.yaml');
 
-    private getNameFromConfigMap(configMap: Include) {
-        return configMap.apiObjects.find(c => c.kind === 'ConfigMap')?.name;
+        // const prometheusVolume = kplus.Volume.fromConfigMap(this, 'prometheus-volume', prometheusConfigMap);
+
+     /*   const prometheusDeployment = new kplus.Deployment(this, 'prometheus', {
+            replicas: 1,
+            containers: [
+                {
+                    securityContext: {
+                        ensureNonRoot: false, // TODO not safe but wont work without it
+                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
+                    },
+                    image: 'prom/prometheus',
+                    args: [
+                        '--enable-feature=exemplar-storage,remote-write-receiver',
+                        '--config.file=/etc/prometheus/prometheus.yaml'
+                    ],
+                    ports: [
+                        {
+                            number: 9090
+                        }
+                    ],
+                },
+            ]
+        });
+
+        prometheusDeployment.containers[0].mount('/etc/prometheus/', prometheusVolume);
+
+        let promService = prometheusDeployment.exposeViaService({ports: [{port: 9090}]});
+        const promIngress = new kplus.Ingress(this, 'prom-ingress');
+        // TODO this is so ugly
+        promIngress.addHostRule(PROM_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(promService), HttpIngressPathType.PREFIX);
+*/
     }
 }
 
