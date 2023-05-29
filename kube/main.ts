@@ -14,6 +14,7 @@ import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
 
 import * as kplus from 'cdk8s-plus-25';
 import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode, ServiceType} from 'cdk8s-plus-25';
+import {ChartProps} from "cdk8s/lib/chart";
 
 
 const KAFKA_INTERNAL_PORT = 9092;
@@ -21,12 +22,13 @@ const KAFKA_INTERNAL_PORT = 9092;
 const SENIK_DB_PORT = '5432';
 
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
+
 // const PROM_LOCAL_ADDRESS = 'prom.127.0.0.1.nip.io';
 
 
 export class MyChart extends Chart {
-    constructor(scope: Construct, id: string) {
-        super(scope, id);
+    constructor(scope: Construct, id: string, props: ChartProps) {
+        super(scope, id, props);
 
         const senikDb = new kplus.Deployment(this, 'senik-db', {
             replicas: 1,
@@ -143,7 +145,6 @@ export class MyChart extends Chart {
         });
 
 
-
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
         const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
@@ -249,75 +250,12 @@ export class MyChart extends Chart {
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
-      /*  const prometheusConfigMap = new kplus.ConfigMap(this, 'prometheus-configmap', {
-            data: {
-                'prometheus.yaml': `
-                    global:
-                      scrape_interval: 2s
-                      evaluation_interval: 2s
-                    
-                    scrape_configs:
-                      - job_name: 'prometheus'
-                        static_configs:
-                          - targets: [ 'localhost:9090' ]
-                      - job_name: 'senik'
-                        metrics_path: '/actuator/prometheus'
-                        static_configs:
-                          - targets: [ 'host.k3d.internal:8080' ] # TODO no security here
-                      - job_name: 'senik-admin'
-                        metrics_path: '/actuator/prometheus'
-                        static_configs:
-                          - targets: [ 'host.k3d.internal:8082' ] # TODO no security here
-                      - job_name: "kafka-broker"
-                        static_configs:
-                          - targets:
-                              - "${kafka.name}:9404"
-                            labels:
-                              env: "dev"
-                        relabel_configs:
-                          - source_labels: [ __address__ ]
-                            target_label: instance
-                            regex: '([^:]+)(:[0-9]+)?'
-                            replacement: '${1}'                    
-                `
-            }
-        });*/
-        // prometheusConfigMap.addFile('../obs/prometheus.yml', 'prometheus.yaml');
 
-        // const prometheusVolume = kplus.Volume.fromConfigMap(this, 'prometheus-volume', prometheusConfigMap);
-
-     /*   const prometheusDeployment = new kplus.Deployment(this, 'prometheus', {
-            replicas: 1,
-            containers: [
-                {
-                    securityContext: {
-                        ensureNonRoot: false, // TODO not safe but wont work without it
-                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
-                    },
-                    image: 'prom/prometheus',
-                    args: [
-                        '--enable-feature=exemplar-storage,remote-write-receiver',
-                        '--config.file=/etc/prometheus/prometheus.yaml'
-                    ],
-                    ports: [
-                        {
-                            number: 9090
-                        }
-                    ],
-                },
-            ]
-        });
-
-        prometheusDeployment.containers[0].mount('/etc/prometheus/', prometheusVolume);
-
-        let promService = prometheusDeployment.exposeViaService({ports: [{port: 9090}]});
-        const promIngress = new kplus.Ingress(this, 'prom-ingress');
-        // TODO this is so ugly
-        promIngress.addHostRule(PROM_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(promService), HttpIngressPathType.PREFIX);
-*/
     }
 }
 
 const app = new App();
-new MyChart(app, 'kafka');
+new MyChart(app, 'snk', {
+    disableResourceNameHashes: true
+});
 app.synth();
