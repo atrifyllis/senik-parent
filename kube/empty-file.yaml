@@ -1,3 +1,0 @@
-# unfortunately, an empty file did not work
-lowercaseOutputName: true
-lowercaseOutputLabelNames: true # without it, kafka metrics are snake case and grafana dashboards won't work
