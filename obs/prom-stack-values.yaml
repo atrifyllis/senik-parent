@@ -3,7 +3,10 @@ prometheus:
     podMonitorSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
-
+  ingress:
+    enabled: true
+    hosts:
+      - prometheus.127.0.0.1.nip.io
 grafana:
     ingress:
       enabled: true
