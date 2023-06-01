@@ -10,6 +10,7 @@ import {
 } from './imports/kafka-kafka.strimzi.io';
 import * as kafkaConnector from './imports/kafka-connector-kafka.strimzi.io';
 import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
+import {KafkaConnectSpecLoggingType} from './imports/kafka-connect-kafka.strimzi.io';
 
 
 import * as kplus from 'cdk8s-plus-25';
@@ -17,14 +18,12 @@ import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode, ServiceType} 
 import {ChartProps} from "cdk8s/lib/chart";
 
 
+const SENIK_DB_PORT = 5432;
+const SENIK_DB_NODE_PORT = 30020;
+
 const KAFKA_INTERNAL_PORT = 9092;
-
-const SENIK_DB_PORT = '5432';
-
+const KAFKA_NODE_PORT = 30019;
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
-
-// const PROM_LOCAL_ADDRESS = 'prom.127.0.0.1.nip.io';
-
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
@@ -68,7 +67,7 @@ export class MyChart extends Chart {
 
         // db exposed as node service to one of the available host ports (30020)
         const senikDbService = senikDb.exposeViaService({
-            ports: [{port: 5432, nodePort: 30020}],
+            ports: [{port: SENIK_DB_PORT, nodePort: SENIK_DB_NODE_PORT}],
             serviceType: ServiceType.NODE_PORT
         });
 
@@ -95,22 +94,20 @@ export class MyChart extends Chart {
                         {
                             name: 'external',
                             port: 9093,
-                            type: KafkaSpecKafkaListenersType.INGRESS, // best way to expose kafka to host with k3d is through ingress
-                            tls: true,
+                            type: KafkaSpecKafkaListenersType.NODEPORT,
+                            tls: false,
                             configuration: {
-                                bootstrap: {
-                                    host: 'kubernetes.docker.internal' // this way we can connect to kafka from host
-                                },
                                 brokers: [
                                     {
                                         broker: 0,
-                                        host: 'broker-0.kubernetes.docker.internal', // TODO not sure where this is needed
-
+                                        advertisedHost: 'localhost',
+                                        nodePort: KAFKA_NODE_PORT
                                     }
-                                ]
+                                ],
                             }
                         }
                     ],
+
                     storage: {
                         type: KafkaSpecKafkaStorageType.JBOD,
                         volumes: [
@@ -131,7 +128,8 @@ export class MyChart extends Chart {
                                 name: dummyKafkaConfigMap.name,
                                 key: 'dummy'
                             }
-                        }
+                        },
+
                     }
                 },
                 zookeeper: {
@@ -140,9 +138,33 @@ export class MyChart extends Chart {
                         type: KafkaSpecZookeeperStorageType.PERSISTENT_CLAIM,
                         size: '1Gi'
                     }
+                },
+                kafkaExporter: {
+                    groupRegex: '.*',
+                    topicRegex: '.*',
+                    logging: 'debug',
+
                 }
             }
         });
+
+        let strimziKafkaDashboardConfigmap = new kplus.ConfigMap(this, 'strimzi-kafka-dashboard', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                }
+            }
+        });
+        strimziKafkaDashboardConfigmap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
+
+        let strimziKafkaExporterDashboardConfigmap = new kplus.ConfigMap(this, 'strimzi-kafka-exporter-dashboard', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                }
+            }
+        });
+        strimziKafkaExporterDashboardConfigmap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
 
 
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
@@ -166,27 +188,34 @@ export class MyChart extends Chart {
                     'offset.storage.replication.factor': 1,
                     'status.storage.replication.factor': 1
                 },
-                // TODO uncomment if image is not available
-                // build: {
-                //     output: {
-                //         image: 'otinanism/strimzi-connect',
-                //         type: KafkaConnectSpecBuildOutputType.DOCKER,
-                //         pushSecret: 'regcred'
-                //     },
-                //     plugins: [
-                //         {
-                //             name: 'debezium-postgres-connector',
-                //             artifacts: [
-                //                 {
-                //                     type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
-                //                     url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
-                //                 }
-                //             ]
-                //         }
-                //     ]
-                // }
+                logging: {
+                    type: KafkaConnectSpecLoggingType.INLINE,
+                    loggers: {
+                        'log4j.rootLogger': 'INFO'
+                    }
+                }
+                /*                TODO uncomment if image is not available
+                                build: {
+                                    output: {
+                                        image: 'otinanism/strimzi-connect',
+                                        type: KafkaConnectSpecBuildOutputType.DOCKER,
+                                        pushSecret: 'regcred'
+                                    },
+                                    plugins: [
+                                        {
+                                            name: 'debezium-postgres-connector',
+                                            artifacts: [
+                                                {
+                                                    type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
+                                                    url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }*/
 
-            }
+            },
+
         });
 
         new kafkaConnector.KafkaConnector(this, 'postgres-sink-kafka-connector', {
@@ -205,7 +234,7 @@ export class MyChart extends Chart {
                     'database.user': 'senik',
                     'database.password': 'senik',
                     'database.dbname': 'senik',
-                    'database.server.name': 'db',
+                    'database.server.name': senikDbService.name,
                     'key.converter': 'org.apache.kafka.connect.json.JsonConverter',
                     'key.converter.schemas.enable': 'false',
                     'value.converter': 'org.apache.kafka.connect.json.JsonConverter',
@@ -249,7 +278,6 @@ export class MyChart extends Chart {
         // TODO this is so ugly
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
-
 
     }
 }
