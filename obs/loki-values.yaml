@@ -4,10 +4,18 @@ loki:
   storage:
     type: 'filesystem'
   auth_enabled: false
+tracing:
+  jaegerAgentHost: tempo
 singleBinary:
   replicas: 1
+  extraEnv:
+    - name: JAEGER_ENDPOINT
+      value: http://snk-tempo-service:14268/api/traces # send traces to Tempo
+    - name: JAEGER_SAMPLER_TYPE
+      value: const
+    - name: JAEGER_SAMPLER_PARAM
+      value: "1"
 gateway:
   service:
     type: NodePort
     nodePort: 30018
-

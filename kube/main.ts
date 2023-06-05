@@ -406,6 +406,55 @@ export class MyChart extends Chart {
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
+        const tempoDeployment = new kplus.Deployment(this, 'tempo', {
+
+            replicas: 1,
+            containers: [
+                {
+                    securityContext: {
+                        allowPrivilegeEscalation: true,
+                        privileged: true,
+                        ensureNonRoot: false, // TODO not safe but wont work without it
+                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
+                    },
+                    image: 'grafana/tempo',
+                    ports: [
+                        {number: 14268},
+                        {number: 9411},
+                        {number: 3200},
+                    ],
+                    args: ['-config.file=/etc/tempo/tempo.yaml']
+                }
+            ]
+        });
+
+        tempoDeployment.exposeViaService({
+            serviceType: ServiceType.NODE_PORT,
+            ports: [
+                {
+                    name: 'zipkin',
+                    port: 9411,
+                    nodePort: 30017
+                },
+                {
+                    name: 'jaeger',
+                    port: 14268
+                },
+                {
+                    name: 'http',
+                    port: 3200
+                }
+            ]
+        })
+
+        const tempoConfigMap = new kplus.ConfigMap(this, 'tempoConfig', {});
+        tempoConfigMap.addFile('../obs/tempo-config.yaml', 'tempo.yaml')
+
+        const tempoVolume = kplus.Volume.fromConfigMap(this, 'tempoVolume', tempoConfigMap);
+
+        tempoDeployment.containers[0].mount('/etc/tempo', tempoVolume, {
+            readOnly: false,
+        })
     }
 }
 

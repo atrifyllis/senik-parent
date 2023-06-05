@@ -1,0 +1,27 @@
+traces:
+  jaeger:
+    grpc:
+      enabled: true
+    thriftHttp:
+      enabled: true
+  zipkin:
+    enabled: true
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo/blocks
+
+metricsGenerator:
+  enabled: true
+  config:
+    registry:
+      external_labels:
+        source: tempo
+        cluster: senik
+    storage:
+      #      path: /tmp/tempo/generator/wal
+      remote_write:
+        - url: http://prometheus-operated:9090/api/v1/write
+          send_exemplars: true
