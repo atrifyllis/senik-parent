@@ -275,25 +275,23 @@ export class MyChart extends Chart {
             }
         });
 
-        let strimziKafkaDashboardConfigmap = new kplus.ConfigMap(this, 'strimzi-kafka-dashboard', {
+        // extra grafana dashboards
+        let dashboardsConfigMap = new kplus.ConfigMap(this, 'grafana-dashboards', {
             metadata: {
                 labels: {
                     'grafana_dashboard': '1'
                 }
             }
         });
-        strimziKafkaDashboardConfigmap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
 
-        let strimziKafkaExporterDashboardConfigmap = new kplus.ConfigMap(this, 'strimzi-kafka-exporter-dashboard', {
-            metadata: {
-                labels: {
-                    'grafana_dashboard': '1'
-                }
-            }
-        });
-        strimziKafkaExporterDashboardConfigmap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
+        dashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
+        dashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
+        dashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-hikaricp-jdbc_rev5.json', 'hikari-dashboard.json')
+        dashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-observability_rev1.json', 'spring-boot-dashboard.json')
+        dashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
+        dashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
 
-
+        // kafka connect
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
         const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
@@ -380,6 +378,7 @@ export class MyChart extends Chart {
 
         let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
 
+        // kafka ui
         const kafkaUi = new kplus.Deployment(this, 'kafka-ui', {
             replicas: 1,
             containers: [
@@ -406,6 +405,7 @@ export class MyChart extends Chart {
 
         ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
 
+        // tempo
         const tempoDeployment = new kplus.Deployment(this, 'tempo', {
 
             replicas: 1,
