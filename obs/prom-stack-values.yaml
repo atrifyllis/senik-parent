@@ -4,7 +4,7 @@ prometheus:
     serviceMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
     enableFeatures:
-      - exemplar-storages
+      - exemplar-storage
     enableRemoteWriteReceiver: true
     additionalScrapeConfigs:
       - job_name: 'senik'
@@ -20,6 +20,12 @@ grafana:
     enabled: true
     hosts:
       - grafana.127.0.0.1.nip.io
+  sidecar:
+    datasources:
+      exemplarTraceIdDestinations:
+        datasourceUid: tempo
+        traceIdLabelName: trace_id
+
   additionalDataSources:
     - name: loki
       type: loki
