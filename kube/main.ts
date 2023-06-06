@@ -276,7 +276,7 @@ export class MyChart extends Chart {
         });
 
         // extra grafana dashboards
-        let dashboardsConfigMap = new kplus.ConfigMap(this, 'grafana-dashboards', {
+        let kafkaDashboardsConfigMap = new kplus.ConfigMap(this, 'kafka-dashboards', {
             metadata: {
                 labels: {
                     'grafana_dashboard': '1'
@@ -284,12 +284,21 @@ export class MyChart extends Chart {
             }
         });
 
-        dashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
-        dashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
-        dashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-hikaricp-jdbc_rev5.json', 'hikari-dashboard.json')
-        dashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-observability_rev1.json', 'spring-boot-dashboard.json')
-        dashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
-        dashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
+        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
+        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
+
+        let springDashboardsConfigMap = new kplus.ConfigMap(this, 'spring-dashboards', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                }
+            }
+        });
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-hikaricp-jdbc_rev5.json', 'hikari-dashboard.json')
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-observability_rev1.json', 'spring-boot-dashboard.json')
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
+
+        // kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
 
         // kafka connect
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
