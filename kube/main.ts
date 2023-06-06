@@ -1,5 +1,5 @@
 import {Construct} from 'constructs';
-import {App, Chart, Size} from 'cdk8s';
+import {App, Chart} from 'cdk8s';
 import * as kafkaStrimzi from './imports/kafka-kafka.strimzi.io';
 import {
     KafkaSpecKafkaListenersType,
@@ -14,8 +14,9 @@ import {KafkaConnectSpecLoggingType} from './imports/kafka-connect-kafka.strimzi
 
 
 import * as kplus from 'cdk8s-plus-25';
-import {EnvValue, HttpIngressPathType, PersistentVolumeAccessMode, ServiceType} from 'cdk8s-plus-25';
+import {EnvValue, HttpIngressPathType, ServiceType} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
+import {Postgresql} from "./postgresql";
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
@@ -30,47 +31,15 @@ export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
         super(scope, id, props);
 
-        const senikDb = new kplus.Deployment(this, 'senik-db', {
-            replicas: 1,
-            containers: [
-                {
-                    securityContext: {
-                        ensureNonRoot: false, // TODO not safe but wont work without it
-                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
-                    },
-                    image: 'debezium/postgres:14',
-                    portNumber: 5432,
-                    envVariables: {
-                        'POSTGRES_USER': EnvValue.fromValue('senik'),
-                        'POSTGRES_PASSWORD': EnvValue.fromValue('senik'),
-                        'POSTGRES_DB': EnvValue.fromValue('senik')
-                    },
-                },
-            ],
+        let senikDb = new Postgresql(this, 'senik-db', {
+            image: 'debezium/postgres:14',
+            portNumber: SENIK_DB_PORT,
+            user: 'senik',
+            password: 'senik',
+            dbName: 'senik',
+            nodePortNumber: SENIK_DB_NODE_PORT
+        });
 
-        });
-        // create the storage request
-        const senikDbClaim = new kplus.PersistentVolumeClaim(this, 'senik-db-pvc', {
-            storage: Size.gibibytes(1),
-            accessModes: [
-                PersistentVolumeAccessMode.READ_WRITE_ONCE
-            ]
-        });
-        // mount a volume based on the request to the container
-        // this will also add the volume itself to the pod spec.
-        senikDb.containers[0].mount(
-            '/var/lib/postgresql/data',
-            kplus.Volume.fromPersistentVolumeClaim(this, 'db-senik-volume', senikDbClaim),
-            {
-                subPath: 'postgres'
-            }
-        );
-
-        // db exposed as node service to one of the available host ports (30020)
-        const senikDbService = senikDb.exposeViaService({
-            ports: [{port: SENIK_DB_PORT, nodePort: SENIK_DB_NODE_PORT}],
-            serviceType: ServiceType.NODE_PORT
-        });
 
         // without the rules in this configmap the strimzi-kafka dashboard does not work!
         let kafkaPrometheusConfigMap = new kplus.ConfigMap(this, 'kafka-prom-configmap', {});
@@ -363,12 +332,12 @@ export class MyChart extends Chart {
                 class: 'io.debezium.connector.postgresql.PostgresConnector',
                 config: {
                     'connector.class': 'io.debezium.connector.postgresql.PostgresConnector',
-                    'database.hostname': senikDbService.name,
+                    'database.hostname': senikDb.serviceName,
                     'database.port': SENIK_DB_PORT,
                     'database.user': 'senik',
                     'database.password': 'senik',
                     'database.dbname': 'senik',
-                    'database.server.name': senikDbService.name,
+                    'database.server.name': senikDb.serviceName,
                     'key.converter': 'org.apache.kafka.connect.json.JsonConverter',
                     'key.converter.schemas.enable': 'false',
                     'value.converter': 'org.apache.kafka.connect.json.JsonConverter',
