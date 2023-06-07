@@ -1,12 +1,12 @@
 import {Construct} from "constructs";
-import * as kafkaStrimzi from "./imports/kafka-kafka.strimzi.io";
+import * as kafkaStrimzi from "../imports/kafka-kafka.strimzi.io";
 import {
     KafkaSpecKafkaListenersType,
     KafkaSpecKafkaMetricsConfigType,
     KafkaSpecKafkaStorageType,
     KafkaSpecKafkaStorageVolumesType,
     KafkaSpecZookeeperStorageType
-} from "./imports/kafka-kafka.strimzi.io";
+} from "../imports/kafka-kafka.strimzi.io";
 
 export interface KafkaServerOptions {
     readonly internalPort: number;

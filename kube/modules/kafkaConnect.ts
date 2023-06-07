@@ -1,6 +1,6 @@
 import {Construct} from "constructs";
-import * as kafkaConnectStrimzi from "./imports/kafka-connect-kafka.strimzi.io";
-import * as kafkaConnector from "./imports/kafka-connector-kafka.strimzi.io";
+import * as kafkaConnectStrimzi from "../imports/kafka-connect-kafka.strimzi.io";
+import * as kafkaConnector from "../imports/kafka-connector-kafka.strimzi.io";
 
 export interface KafkaConnectOptions {
     readonly kafkaBootstrapServers: string;

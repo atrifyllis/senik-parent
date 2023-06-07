@@ -4,11 +4,12 @@ import {App, Chart} from 'cdk8s';
 
 import * as kplus from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
-import {Postgresql} from "./postgresql";
-import {KafkaConnect} from "./kafkaConnect";
-import {KafkaServer} from "./kafkaServer";
-import {KafkaUi} from "./kafkaUi";
-import {Tempo} from "./tempo";
+import {Postgresql} from "./modules/postgresql";
+import {KafkaServer} from "./modules/kafkaServer";
+import {KafkaConnect} from "./modules/kafkaConnect";
+import {KafkaUi} from "./modules/kafkaUi";
+import {Tempo} from "./modules/tempo";
+
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
@@ -47,7 +48,7 @@ export class MyChart extends Chart {
             metricsConfigMapKey: KAFKA_METRICS_CONFIG_KEY
         });
 
-        // extra grafana dashboards
+
         let kafkaDashboardsConfigMap = new kplus.ConfigMap(this, 'kafka-dashboards', {
             metadata: {
                 labels: {
@@ -71,7 +72,6 @@ export class MyChart extends Chart {
         springDashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
 
         // kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
-
 
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
