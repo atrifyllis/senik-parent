@@ -37,7 +37,76 @@ export class MyChart extends Chart {
 
         // without the rules in this configmap the strimzi-kafka dashboard does not work!
         let kafkaPrometheusConfigMap = new kplus.ConfigMap(this, 'kafka-prom-configmap', {});
-        kafkaPrometheusConfigMap.addData(KAFKA_METRICS_CONFIG_KEY, `
+        kafkaPrometheusConfigMap.addData(KAFKA_METRICS_CONFIG_KEY, this.getKafkaPromConfigMapContent())
+
+        const kafka = new KafkaServer(this, 'kafka-cluster', {
+            internalPort: KAFKA_INTERNAL_PORT,
+            externalPort: 9093,
+            nodePort: KAFKA_NODE_PORT,
+            metricsConfigMapName: kafkaPrometheusConfigMap.name,
+            metricsConfigMapKey: KAFKA_METRICS_CONFIG_KEY
+        });
+
+        // extra grafana dashboards
+        let kafkaDashboardsConfigMap = new kplus.ConfigMap(this, 'kafka-dashboards', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                }
+            }
+        });
+
+        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
+        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
+
+        let springDashboardsConfigMap = new kplus.ConfigMap(this, 'spring-dashboards', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                }
+            }
+        });
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-hikaricp-jdbc_rev5.json', 'hikari-dashboard.json')
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-observability_rev1.json', 'spring-boot-dashboard.json')
+        springDashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
+
+        // kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
+
+
+        let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
+
+        let kafkaConnect = new KafkaConnect(this, 'kafka-connect-cluster', {
+            image: 'otinanism/strimzi-connect',
+            kafkaBootstrapServers: kafkaBootstrapServers,
+            name: 'senik-debezium',
+            connectorId: 'postgres-sink-kafka-connector',
+            connectorName: 'senik-outbox-connector',
+            dbHost: senikDb.serviceName,
+            dbPort: SENIK_DB_PORT,
+            dbUser: 'senik',
+            dbPassword: 'senik',
+            dbName: 'senik',
+            outboxTopic: 'senik.events'
+        });
+
+        let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
+
+        new KafkaUi(this, 'kafka-ui', {
+            kafkaBootstrapServers: kafkaBootstrapServers,
+            kafkaConnectName: kafkaConnect.name,
+            kafkaConnectAddress: kafkaConnectAddress,
+            kafkaUiAddress: KAFKA_UI_LOCAL_ADDRESS
+        });
+
+        new Tempo(this, 'tempo', {
+            zipkinNodePort: TEMPO_ZIPKIN_NODE_PORT,
+            configFilePath: '../obs/tempo-config.yaml'
+        });
+
+    }
+
+    private getKafkaPromConfigMapContent() {
+        return `
             
         # unfortunately, an empty file did not work
         lowercaseOutputName: true
@@ -164,72 +233,7 @@ export class MyChart extends Chart {
             labels:
               quantile: "0.$4"
 
-        `)
-
-        const kafka = new KafkaServer(this, 'kafka-cluster', {
-            internalPort: KAFKA_INTERNAL_PORT,
-            externalPort: 9093,
-            nodePort: KAFKA_NODE_PORT,
-            metricsConfigMapName: kafkaPrometheusConfigMap.name,
-            metricsConfigMapKey: KAFKA_METRICS_CONFIG_KEY
-        });
-
-        // extra grafana dashboards
-        let kafkaDashboardsConfigMap = new kplus.ConfigMap(this, 'kafka-dashboards', {
-            metadata: {
-                labels: {
-                    'grafana_dashboard': '1'
-                }
-            }
-        });
-
-        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka-exporter.json', 'strimzi-kafka-exporter.json');
-        kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
-
-        let springDashboardsConfigMap = new kplus.ConfigMap(this, 'spring-dashboards', {
-            metadata: {
-                labels: {
-                    'grafana_dashboard': '1'
-                }
-            }
-        });
-        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-hikaricp-jdbc_rev5.json', 'hikari-dashboard.json')
-        springDashboardsConfigMap.addFile('../obs/dashboards/new/spring-boot-observability_rev1.json', 'spring-boot-dashboard.json')
-        springDashboardsConfigMap.addFile('../obs/dashboards/new/jvm-micrometer_rev9.json', 'jvm-micrometer_rev9.json')
-
-        // kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
-
-
-        let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
-
-        let kafkaConnect = new KafkaConnect(this, 'kafka-connect-cluster', {
-            image: 'otinanism/strimzi-connect',
-            kafkaBootstrapServers: kafkaBootstrapServers,
-            name: 'senik-debezium',
-            connectorId: 'postgres-sink-kafka-connector',
-            connectorName: 'senik-outbox-connector',
-            dbHost: senikDb.serviceName,
-            dbPort: SENIK_DB_PORT,
-            dbUser: 'senik',
-            dbPassword: 'senik',
-            dbName: 'senik',
-            outboxTopic: 'senik.events'
-        });
-
-        let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
-
-        new KafkaUi(this, 'kafka-ui', {
-            kafkaBootstrapServers: kafkaBootstrapServers,
-            kafkaConnectName: kafkaConnect.name,
-            kafkaConnectAddress: kafkaConnectAddress,
-            kafkaUiAddress: KAFKA_UI_LOCAL_ADDRESS
-        });
-
-        new Tempo(this, 'tempo', {
-            zipkinNodePort: TEMPO_ZIPKIN_NODE_PORT,
-            configFilePath: '../obs/tempo-config.yaml'
-        });
-
+        `;
     }
 }
 
