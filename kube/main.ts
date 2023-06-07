@@ -1,5 +1,5 @@
 import {Construct} from 'constructs';
-import {App, Chart} from 'cdk8s';
+import {App, Chart, YamlOutputType} from 'cdk8s';
 
 
 import * as kplus from 'cdk8s-plus-25';
@@ -237,7 +237,9 @@ export class MyChart extends Chart {
     }
 }
 
-const app = new App();
+const app = new App({
+    yamlOutputType: YamlOutputType.FOLDER_PER_CHART_FILE_PER_RESOURCE
+});
 new MyChart(app, 'snk', {
     disableResourceNameHashes: true
 });
