@@ -1,8 +1,9 @@
 import {Construct} from 'constructs';
-import {App, Chart, YamlOutputType} from 'cdk8s';
+import {App, Chart, Size, YamlOutputType} from 'cdk8s';
 
 
 import * as kplus from 'cdk8s-plus-25';
+import {PersistentVolumeAccessMode} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
 import {Postgresql} from "./modules/postgresql";
 import {KafkaServer} from "./modules/kafkaServer";
@@ -34,6 +35,15 @@ export class MyChart extends Chart {
             provisioner: 'rancher.io/local-path',
             reclaimPolicy: 'Retain',
             volumeBindingMode: 'WaitForFirstConsumer'
+        });
+
+        // TODO this is soooo ugly, but I could not find a way to keep the PVC created by grafan helm chart after helm uninstall...
+        new kplus.PersistentVolumeClaim(this, `prom-grafana`, {
+            storage: Size.gibibytes(2),
+            accessModes: [
+                PersistentVolumeAccessMode.READ_WRITE_ONCE
+            ],
+            storageClassName: 'local-path-retain'
         });
 
         let senikDb = new Postgresql(this, 'senik-db', {

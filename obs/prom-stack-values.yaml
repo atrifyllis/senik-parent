@@ -11,6 +11,13 @@ prometheus:
         metrics_path: '/actuator/prometheus'
         static_configs:
           - targets: [ 'host.k3d.internal:8080' ] # TODO no security here
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path-retain
+          resources:
+            requests:
+              storage: 2Gi
   ingress:
     enabled: true
     hosts:
@@ -20,6 +27,7 @@ grafana:
     enabled: true
     hosts:
       - grafana.127.0.0.1.nip.io
+
   sidecar:
     datasources:
       exemplarTraceIdDestinations:
@@ -74,3 +82,20 @@ grafana:
           datasourceUid: 'prometheus' # TODO this is still not working
         nodeGraph:
           enabled: true
+
+
+
+  persistence:
+    type: pvc
+    enabled: true
+    storageClassName: local-path-retain
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    # annotations: {}
+    finalizers:
+      - kubernetes.io/pvc-protection
+    # selectorLabels: {}
+    # subPath: ""
+    existingClaim: snk-prom-grafana # reuse!
+    # extraPvcLabels: {}
