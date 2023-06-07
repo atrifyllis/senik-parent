@@ -9,6 +9,7 @@ import {KafkaServer} from "./modules/kafkaServer";
 import {KafkaConnect} from "./modules/kafkaConnect";
 import {KafkaUi} from "./modules/kafkaUi";
 import {Tempo} from "./modules/tempo";
+import {KubeStorageClass} from "./imports/k8s";
 
 
 const SENIK_DB_PORT = 5432;
@@ -25,6 +26,15 @@ const TEMPO_ZIPKIN_NODE_PORT = 30017;
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
         super(scope, id, props);
+
+        new KubeStorageClass(this, 'local-path-retain', {
+            metadata: {
+                name: 'local-path-retain'
+            },
+            provisioner: 'rancher.io/local-path',
+            reclaimPolicy: 'Retain',
+            volumeBindingMode: 'WaitForFirstConsumer'
+        });
 
         let senikDb = new Postgresql(this, 'senik-db', {
             image: 'debezium/postgres:14',

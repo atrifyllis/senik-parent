@@ -43,7 +43,8 @@ export class Postgresql extends Construct {
             storage: Size.gibibytes(1),
             accessModes: [
                 PersistentVolumeAccessMode.READ_WRITE_ONCE
-            ]
+            ],
+            storageClassName: 'local-path-retain'
         });
         // mount a volume based on the request to the container
         // this will also add the volume itself to the pod spec.
