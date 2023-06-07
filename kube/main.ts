@@ -3,11 +3,12 @@ import {App, Chart} from 'cdk8s';
 
 
 import * as kplus from 'cdk8s-plus-25';
-import {EnvValue, HttpIngressPathType, ServiceType} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
 import {Postgresql} from "./postgresql";
 import {KafkaConnect} from "./kafkaConnect";
 import {KafkaServer} from "./kafkaServer";
+import {KafkaUi} from "./kafkaUi";
+import {Tempo} from "./tempo";
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
@@ -17,6 +18,8 @@ const KAFKA_NODE_PORT = 30019;
 const KAFKA_METRICS_CONFIG_KEY = 'kafka-metrics-config.yaml';
 
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
+
+const TEMPO_ZIPKIN_NODE_PORT = 30017;
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
@@ -196,7 +199,7 @@ export class MyChart extends Chart {
 
         // kafkaDashboardsConfigMap.addFile('../obs/dashboards/new/logs_traces_metrics.json', 'logs_traces_metrics.json')
 
-        // kafka connect
+
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
         let kafkaConnect = new KafkaConnect(this, 'kafka-connect-cluster', {
@@ -215,83 +218,18 @@ export class MyChart extends Chart {
 
         let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
 
-        // kafka ui
-        const kafkaUi = new kplus.Deployment(this, 'kafka-ui', {
-            replicas: 1,
-            containers: [
-                {
-                    securityContext: {
-                        ensureNonRoot: false
-                    },
-                    image: 'provectuslabs/kafka-ui:latest',
-                    portNumber: 8080,
-                    envVariables: {
-                        'KAFKA_CLUSTERS_0_NAME': EnvValue.fromValue('local'),
-                        'KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS': EnvValue.fromValue(kafkaBootstrapServers),
-                        'KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME': EnvValue.fromValue(kafkaConnect.name),
-                        'KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS': EnvValue.fromValue(kafkaConnectAddress),
-                        'DYNAMIC_CONFIG_ENABLED': EnvValue.fromValue('true')
-                    }
-                }
-            ]
+        new KafkaUi(this, 'kafka-ui', {
+            kafkaBootstrapServers: kafkaBootstrapServers,
+            kafkaConnectName: kafkaConnect.name,
+            kafkaConnectAddress: kafkaConnectAddress,
+            kafkaUiAddress: KAFKA_UI_LOCAL_ADDRESS
         });
 
-        let kafkaUiService = kafkaUi.exposeViaService({ports: [{port: 8080}]});
-        const ingress = new kplus.Ingress(this, 'kafka-ui-ingress');
-        // TODO this is so ugly
-
-        ingress.addHostRule(KAFKA_UI_LOCAL_ADDRESS, '/', kplus.IngressBackend.fromService(kafkaUiService), HttpIngressPathType.PREFIX);
-
-        // tempo
-        const tempoDeployment = new kplus.Deployment(this, 'tempo', {
-
-            replicas: 1,
-            containers: [
-                {
-                    securityContext: {
-                        allowPrivilegeEscalation: true,
-                        privileged: true,
-                        ensureNonRoot: false, // TODO not safe but wont work without it
-                        readOnlyRootFilesystem: false // TODO not safe but wont work without it
-                    },
-                    image: 'grafana/tempo',
-                    ports: [
-                        {number: 14268},
-                        {number: 9411},
-                        {number: 3200},
-                    ],
-                    args: ['-config.file=/etc/tempo/tempo.yaml']
-                }
-            ]
+        new Tempo(this, 'tempo', {
+            zipkinNodePort: TEMPO_ZIPKIN_NODE_PORT,
+            configFilePath: '../obs/tempo-config.yaml'
         });
 
-        tempoDeployment.exposeViaService({
-            serviceType: ServiceType.NODE_PORT,
-            ports: [
-                {
-                    name: 'zipkin',
-                    port: 9411,
-                    nodePort: 30017
-                },
-                {
-                    name: 'jaeger',
-                    port: 14268
-                },
-                {
-                    name: 'http',
-                    port: 3200
-                }
-            ]
-        })
-
-        const tempoConfigMap = new kplus.ConfigMap(this, 'tempoConfig', {});
-        tempoConfigMap.addFile('../obs/tempo-config.yaml', 'tempo.yaml')
-
-        const tempoVolume = kplus.Volume.fromConfigMap(this, 'tempoVolume', tempoConfigMap);
-
-        tempoDeployment.containers[0].mount('/etc/tempo', tempoVolume, {
-            readOnly: false,
-        })
     }
 }
 
