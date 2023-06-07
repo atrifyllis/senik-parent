@@ -33,6 +33,13 @@ grafana:
       exemplarTraceIdDestinations:
         datasourceUid: tempo
         traceIdLabelName: trace_id
+    dashboards:
+      enabled: true
+      folderAnnotation: "grafana_folder"
+      provider:
+        disableDelete: false
+        allowUiUpdates: true
+        foldersFromFilesStructure: true
 
   additionalDataSources:
     - name: loki
