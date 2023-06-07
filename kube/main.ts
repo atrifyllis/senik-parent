@@ -1,13 +1,5 @@
 import {Construct} from 'constructs';
 import {App, Chart} from 'cdk8s';
-import * as kafkaStrimzi from './imports/kafka-kafka.strimzi.io';
-import {
-    KafkaSpecKafkaListenersType,
-    KafkaSpecKafkaMetricsConfigType,
-    KafkaSpecKafkaStorageType,
-    KafkaSpecKafkaStorageVolumesType,
-    KafkaSpecZookeeperStorageType
-} from './imports/kafka-kafka.strimzi.io';
 
 
 import * as kplus from 'cdk8s-plus-25';
@@ -15,6 +7,7 @@ import {EnvValue, HttpIngressPathType, ServiceType} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
 import {Postgresql} from "./postgresql";
 import {KafkaConnect} from "./kafkaConnect";
+import {KafkaServer} from "./kafkaServer";
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
@@ -168,78 +161,14 @@ export class MyChart extends Chart {
             labels:
               quantile: "0.$4"
 
-            
         `)
 
-        const kafka = new kafkaStrimzi.Kafka(this, 'kafka-cluster', {
-            spec: {
-
-
-                kafka: {
-                    replicas: 1,
-                    listeners: [
-                        {
-                            name: 'plain',
-                            port: KAFKA_INTERNAL_PORT,
-                            type: KafkaSpecKafkaListenersType.INTERNAL,
-                            tls: false,
-
-                        },
-                        {
-                            name: 'external',
-                            port: 9093,
-                            type: KafkaSpecKafkaListenersType.NODEPORT,
-                            tls: false,
-                            configuration: {
-                                brokers: [
-                                    {
-                                        broker: 0,
-                                        advertisedHost: 'localhost',
-                                        nodePort: KAFKA_NODE_PORT
-                                    }
-                                ],
-                            }
-                        }
-                    ],
-
-                    storage: {
-                        type: KafkaSpecKafkaStorageType.JBOD,
-                        volumes: [
-                            {
-                                id: 0,
-                                type: KafkaSpecKafkaStorageVolumesType.PERSISTENT_CLAIM,
-                                size: '1Gi',
-                            }
-                        ]
-                    },
-                    config: {
-                        'offsets.topic.replication.factor': 1
-                    },
-                    metricsConfig: {
-                        type: KafkaSpecKafkaMetricsConfigType.JMX_PROMETHEUS_EXPORTER,
-                        valueFrom: {
-                            configMapKeyRef: {
-                                name: kafkaPrometheusConfigMap.name,
-                                key: KAFKA_METRICS_CONFIG_KEY
-                            }
-                        },
-
-                    }
-                },
-                zookeeper: {
-                    replicas: 1,
-                    storage: {
-                        type: KafkaSpecZookeeperStorageType.PERSISTENT_CLAIM,
-                        size: '1Gi'
-                    }
-                },
-                kafkaExporter: {
-                    groupRegex: '.*',
-                    topicRegex: '.*',
-                    logging: 'debug',
-
-                }
-            }
+        const kafka = new KafkaServer(this, 'kafka-cluster', {
+            internalPort: KAFKA_INTERNAL_PORT,
+            externalPort: 9093,
+            nodePort: KAFKA_NODE_PORT,
+            metricsConfigMapName: kafkaPrometheusConfigMap.name,
+            metricsConfigMapKey: KAFKA_METRICS_CONFIG_KEY
         });
 
         // extra grafana dashboards
