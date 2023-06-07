@@ -8,15 +8,13 @@ import {
     KafkaSpecKafkaStorageVolumesType,
     KafkaSpecZookeeperStorageType
 } from './imports/kafka-kafka.strimzi.io';
-import * as kafkaConnector from './imports/kafka-connector-kafka.strimzi.io';
-import * as kafkaConnectStrimzi from './imports/kafka-connect-kafka.strimzi.io';
-import {KafkaConnectSpecLoggingType} from './imports/kafka-connect-kafka.strimzi.io';
 
 
 import * as kplus from 'cdk8s-plus-25';
 import {EnvValue, HttpIngressPathType, ServiceType} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
 import {Postgresql} from "./postgresql";
+import {KafkaConnect} from "./kafkaConnect";
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
@@ -272,86 +270,18 @@ export class MyChart extends Chart {
         // kafka connect
         let kafkaBootstrapServers = `${kafka.name}-kafka-bootstrap:${KAFKA_INTERNAL_PORT}`;
 
-        const kafkaConnect = new kafkaConnectStrimzi.KafkaConnect(this, 'kafka-connect-cluster', {
-            metadata: {
-                annotations: {
-                    'strimzi.io/use-connector-resources': 'true' // needed to enable kafka connectors
-                }
-            },
-            spec: {
-                image: 'otinanism/strimzi-connect',
-                replicas: 1,
-                bootstrapServers: kafkaBootstrapServers,
-                config: {
-                    'group.id': 'senik-debezium-connect-group',
-                    'offset.storage.topic': 'senik-debezium-offsets',
-                    'config.storage.topic': 'senik-debezium-config',
-                    'status.storage.topic': 'senik-debezium-status',
-                    'config.storage.replication.factor': 1,
-                    'offset.storage.replication.factor': 1,
-                    'status.storage.replication.factor': 1
-                },
-                logging: {
-                    type: KafkaConnectSpecLoggingType.INLINE,
-                    loggers: {
-                        'log4j.rootLogger': 'INFO'
-                    }
-                }
-                /*                TODO uncomment if image is not available
-                                build: {
-                                    output: {
-                                        image: 'otinanism/strimzi-connect',
-                                        type: KafkaConnectSpecBuildOutputType.DOCKER,
-                                        pushSecret: 'regcred'
-                                    },
-                                    plugins: [
-                                        {
-                                            name: 'debezium-postgres-connector',
-                                            artifacts: [
-                                                {
-                                                    type: KafkaConnectSpecBuildPluginsArtifactsType.TGZ,
-                                                    url: `https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/${debeziumVersion}/debezium-connector-postgres-${debeziumVersion}-plugin.tar.gz`
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }*/
-
-            },
-
-        });
-
-        new kafkaConnector.KafkaConnector(this, 'postgres-sink-kafka-connector', {
-            metadata: {
-                name: 'senik-outbox-connector',
-                labels: {
-                    'strimzi.io/cluster': kafkaConnect.name // required!
-                }
-            },
-            spec: {
-                class: 'io.debezium.connector.postgresql.PostgresConnector',
-                config: {
-                    'connector.class': 'io.debezium.connector.postgresql.PostgresConnector',
-                    'database.hostname': senikDb.serviceName,
-                    'database.port': SENIK_DB_PORT,
-                    'database.user': 'senik',
-                    'database.password': 'senik',
-                    'database.dbname': 'senik',
-                    'database.server.name': senikDb.serviceName,
-                    'key.converter': 'org.apache.kafka.connect.json.JsonConverter',
-                    'key.converter.schemas.enable': 'false',
-                    'value.converter': 'org.apache.kafka.connect.json.JsonConverter',
-                    'value.converter.schemas.enable': 'false',
-                    'tombstones.on.delete': 'false',
-                    'table.include.list': 'public.persisted_event',
-                    'topic.prefix': 'senik',
-                    'transforms': 'outbox',
-                    'transforms.outbox.type': 'io.debezium.transforms.outbox.EventRouter',
-                    'transforms.outbox.table.expand.json.payload': 'true',
-                    'transforms.outbox.route.topic.replacement': 'senik.events',
-                    'transforms.outbox.table.fields.additional.placement': 'tracingspancontext:header:traceparent'
-                }
-            }
+        let kafkaConnect = new KafkaConnect(this, 'kafka-connect-cluster', {
+            image: 'otinanism/strimzi-connect',
+            kafkaBootstrapServers: kafkaBootstrapServers,
+            name: 'senik-debezium',
+            connectorId: 'postgres-sink-kafka-connector',
+            connectorName: 'senik-outbox-connector',
+            dbHost: senikDb.serviceName,
+            dbPort: SENIK_DB_PORT,
+            dbUser: 'senik',
+            dbPassword: 'senik',
+            dbName: 'senik',
+            outboxTopic: 'senik.events'
         });
 
         let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
