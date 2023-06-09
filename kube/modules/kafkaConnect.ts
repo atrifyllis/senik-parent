@@ -1,8 +1,10 @@
 import {Construct} from "constructs";
 import * as kafkaConnectStrimzi from "../imports/kafka-connect-kafka.strimzi.io";
+import {KafkaConnectSpecMetricsConfigType} from "../imports/kafka-connect-kafka.strimzi.io";
 import * as kafkaConnector from "../imports/kafka-connector-kafka.strimzi.io";
 
 export interface KafkaConnectOptions {
+
     readonly kafkaBootstrapServers: string;
     readonly name: string;
     readonly image: string;
@@ -14,7 +16,8 @@ export interface KafkaConnectOptions {
     readonly dbPassword: string;
     readonly dbName: string;
     readonly outboxTopic: string;
-
+    readonly metricsConfigMapKey: string;
+    readonly metricsConfigMapName: string;
 }
 
 export class KafkaConnect extends Construct {
@@ -61,6 +64,15 @@ export class KafkaConnect extends Construct {
                                         }
                                     ]
                                 }*/
+                metricsConfig: {
+                    type: KafkaConnectSpecMetricsConfigType.JMX_PROMETHEUS_EXPORTER,
+                    valueFrom: {
+                        configMapKeyRef: {
+                            name: options.metricsConfigMapName,
+                            key: options.metricsConfigMapKey
+                        }
+                    },
+                }
             },
         });
 

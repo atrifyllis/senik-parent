@@ -19,6 +19,7 @@ const SENIK_DB_NODE_PORT = 30020;
 const KAFKA_INTERNAL_PORT = 9092;
 const KAFKA_NODE_PORT = 30019;
 const KAFKA_METRICS_CONFIG_KEY = 'kafka-metrics-config.yaml';
+const KAFKA_CONNECT_METRICS_CONFIG_KEY = 'kafka-connect-metrics-config.yaml';
 
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
 
@@ -59,6 +60,9 @@ export class MyChart extends Chart {
         // without the rules in this configmap the strimzi-kafka dashboard does not work!
         let kafkaPrometheusConfigMap = new kplus.ConfigMap(this, 'kafka-prom-configmap', {});
         kafkaPrometheusConfigMap.addData(KAFKA_METRICS_CONFIG_KEY, this.getKafkaPromConfigMapContent())
+
+        let kafkaConnectPrometheusConfigMap = new kplus.ConfigMap(this, 'kafka-connect-prom-configmap', {});
+        kafkaConnectPrometheusConfigMap.addFile('../obs/connect-metrics.yaml', KAFKA_CONNECT_METRICS_CONFIG_KEY);
 
         const kafka = new KafkaServer(this, 'kafka-cluster', {
             internalPort: KAFKA_INTERNAL_PORT,
@@ -146,7 +150,9 @@ export class MyChart extends Chart {
             dbUser: 'senik',
             dbPassword: 'senik',
             dbName: 'senik',
-            outboxTopic: 'senik.events'
+            outboxTopic: 'senik.events',
+            metricsConfigMapName:  kafkaConnectPrometheusConfigMap.name,
+            metricsConfigMapKey: KAFKA_CONNECT_METRICS_CONFIG_KEY
         });
 
         let kafkaConnectAddress = `http://${kafkaConnect.name}-connect-api:8083`;
