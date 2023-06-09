@@ -6,6 +6,7 @@ loki:
   auth_enabled: false
 tracing:
   jaegerAgentHost: tempo
+
 singleBinary:
   replicas: 1
   extraEnv:
@@ -15,6 +16,9 @@ singleBinary:
       value: const
     - name: JAEGER_SAMPLER_PARAM
       value: "1"
+  persistence:
+    storageClass: local-path-retain
+
 gateway:
   service:
     type: NodePort
