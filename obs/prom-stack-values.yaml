@@ -104,5 +104,5 @@ grafana:
       - kubernetes.io/pvc-protection
     # selectorLabels: {}
     # subPath: ""
-    existingClaim: snk-prom-grafana # reuse!
+    existingClaim: snk-storage-prom-grafana # reuse!
     # extraPvcLabels: {}

@@ -1,17 +1,16 @@
 import {Construct} from 'constructs';
-import {App, Chart, Size, YamlOutputType} from 'cdk8s';
+import {App, Chart, YamlOutputType} from 'cdk8s';
 
 
 import * as kplus from 'cdk8s-plus-25';
-import {PersistentVolumeAccessMode} from 'cdk8s-plus-25';
 import {ChartProps} from "cdk8s/lib/chart";
 import {Postgresql} from "./modules/postgresql";
 import {KafkaServer} from "./modules/kafkaServer";
 import {KafkaConnect} from "./modules/kafkaConnect";
 import {KafkaUi} from "./modules/kafkaUi";
 import {Tempo} from "./modules/tempo";
-import {KubeStorageClass} from "./imports/k8s";
 import {GrafanaDashboards} from "./modules/grafanaDashboards";
+import {StorageClassChart} from "./storaceClass";
 
 
 const SENIK_DB_PORT = 5432;
@@ -30,23 +29,6 @@ export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
         super(scope, id, props);
 
-        new KubeStorageClass(this, 'local-path-retain', {
-            metadata: {
-                name: 'local-path-retain'
-            },
-            provisioner: 'rancher.io/local-path',
-            reclaimPolicy: 'Retain',
-            volumeBindingMode: 'WaitForFirstConsumer'
-        });
-
-        // TODO this is soooo ugly, but I could not find a way to keep the PVC created by grafan helm chart after helm uninstall...
-        new kplus.PersistentVolumeClaim(this, `prom-grafana`, {
-            storage: Size.gibibytes(2),
-            accessModes: [
-                PersistentVolumeAccessMode.READ_WRITE_ONCE
-            ],
-            storageClassName: 'local-path-retain'
-        });
 
         let senikDb = new Postgresql(this, 'senik-db', {
             image: 'debezium/postgres:14',
@@ -117,7 +99,12 @@ export class MyChart extends Chart {
 const app = new App({
     yamlOutputType: YamlOutputType.FOLDER_PER_CHART_FILE_PER_RESOURCE
 });
-new MyChart(app, 'snk', {
+let appChart = new MyChart(app, 'snk', {
     disableResourceNameHashes: true
 });
+let storageClassChart = new StorageClassChart(app, 'snk-storage', {
+    disableResourceNameHashes: true,
+});
+appChart.addDependency(storageClassChart);
+
 app.synth();
