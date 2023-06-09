@@ -99,6 +99,19 @@ export class MyChart extends Chart {
 
         kafkaDashboardsConfigMap2.addFile('../obs/dashboards/new/strimzi-kafka.json', 'strimzi-kafka.json');
 
+        let kafkaDashboardsConfigMap3 = new kplus.ConfigMap(this, 'kafka-dashboards3', {
+            metadata: {
+                labels: {
+                    'grafana_dashboard': '1'
+                },
+                annotations: {
+                    "grafana_folder": "/tmp/dashboards/kafka"
+                }
+            }
+        });
+
+        kafkaDashboardsConfigMap3.addFile('../obs/dashboards/new/strimzi-kafka-connect.json', 'strimzi-kafka-connect.json');
+
         let springDashboardsConfigMap = new kplus.ConfigMap(this, 'spring-dashboards', {
             metadata: {
                 labels: {
