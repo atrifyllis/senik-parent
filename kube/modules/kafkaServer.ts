@@ -60,7 +60,8 @@ export class KafkaServer extends Construct {
                             {
                                 id: 0,
                                 type: KafkaSpecKafkaStorageVolumesType.PERSISTENT_CLAIM,
-                                size: '1Gi',
+                                size: '3Gi',
+                                class: 'local-path-retain'
                             }
                         ]
                     },
@@ -84,6 +85,7 @@ export class KafkaServer extends Construct {
                     replicas: 1,
                     storage: {
                         type: KafkaSpecZookeeperStorageType.PERSISTENT_CLAIM,
+                        class: 'local-path-retain',
                         size: '1Gi'
                     }
                 },
