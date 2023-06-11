@@ -1,7 +1,12 @@
 import {Construct} from "constructs";
 import * as kafkaConnectStrimzi from "../imports/kafka-connect-kafka.strimzi.io";
-import {KafkaConnectSpecMetricsConfigType} from "../imports/kafka-connect-kafka.strimzi.io";
+import {
+    KafkaConnectSpecMetricsConfigType,
+    KafkaConnectSpecTracingType
+} from "../imports/kafka-connect-kafka.strimzi.io";
 import * as kafkaConnector from "../imports/kafka-connector-kafka.strimzi.io";
+import * as kplus from 'cdk8s-plus-25';
+
 
 export interface KafkaConnectOptions {
 
@@ -33,6 +38,13 @@ export class KafkaConnect extends Construct {
                 }
             },
             spec: {
+
+/*                logging: {
+                    type: KafkaConnectSpecLoggingType.INLINE,
+                    loggers: {
+                        'connect.root.logger.level': 'DEBUG'
+                    }
+                },*/
                 image: options.image,
                 replicas: 1,
                 bootstrapServers: options.kafkaBootstrapServers,
@@ -72,7 +84,47 @@ export class KafkaConnect extends Construct {
                             key: options.metricsConfigMapKey
                         }
                     },
-                }
+                },
+                tracing: {
+                    type: KafkaConnectSpecTracingType.JAEGER,
+                },
+
+                template: {
+
+                    connectContainer: {
+                        env: [
+                            {
+                                name: 'JAVA_TOOL_OPTIONS',
+                                value: '-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n'
+                            },
+                            {
+                                name: 'JAEGER_SERVICE_NAME',
+                                value: 'kafka-connect'
+                            },
+/*                            {
+                                name: 'JAEGER_AGENT_HOST',
+                                value: 'snk-tempo-service'
+                            },
+                            {
+                                name: 'JAEGER_AGENT_PORT',
+                                value: '6831'
+                            },*/
+                            {
+                                name: 'JAEGER_SAMPLER_TYPE',
+                                value: 'const'
+                            },
+                            {
+                                name: 'JAEGER_SAMPLER_PARAM',
+                                value: '1'
+                            },
+                            {
+                                name: 'JAEGER_ENDPOINT',
+                                value: 'http://snk-tempo-service:14268/api/traces'
+                            },
+                        ]
+                    }
+                },
+
             },
         });
 
@@ -104,10 +156,30 @@ export class KafkaConnect extends Construct {
                     'transforms.outbox.type': 'io.debezium.transforms.outbox.EventRouter',
                     'transforms.outbox.table.expand.json.payload': 'true',
                     'transforms.outbox.route.topic.replacement': options.outboxTopic,
-                    'transforms.outbox.table.fields.additional.placement': 'tracingspancontext:header:traceparent'
+                    // 'transforms.outbox.table.fields.additional.placement': 'tracingspancontext:header:traceparent'
+                    'consumer.interceptor.classes': 'io.opentracing.contrib.kafka.TracingConsumerInterceptor',
+                    'producer.interceptor.classes': 'io.opentracing.contrib.kafka.TracingProducerInterceptor'
                 }
             }
         });
+
+
+        // for debugging purposes only
+        let connectService = new kplus.Service(this, 'connect-service', {
+            type: kplus.ServiceType.NODE_PORT,
+            ports: [
+                {
+                    name: 'debug',
+                    port: 5005,
+                    nodePort: 30016
+                }
+            ],
+        });
+
+        connectService.selectLabel('strimzi.io/cluster','snk-kafka-connect-cluster');
+        connectService.selectLabel('strimzi.io/kind','KafkaConnect');
+        connectService.selectLabel('strimzi.io/name','snk-kafka-connect-cluster-connect');
+
         this.name = kafkaConnect.name
     }
 }

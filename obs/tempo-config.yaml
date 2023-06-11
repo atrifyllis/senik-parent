@@ -1,16 +1,19 @@
 server:
   http_listen_port: 3200
-
+#  log_level: debug
 distributor:
   receivers:
     zipkin:
-
+    jaeger:
+      protocols:
+        thrift_http:
+        thrift_binary:
+        thrift_compact:
 storage:
   trace:
     backend: local
     local:
       path: /tmp/tempo/blocks
-
 metrics_generator:
   registry:
     external_labels:
@@ -21,6 +24,5 @@ metrics_generator:
     remote_write:
       - url: http://prom-kube-prometheus-stack-prometheus:9090/api/v1/write
         send_exemplars: true
-
 overrides:
   metrics_generator_processors: [ service-graphs, span-metrics ] # enables metrics generator

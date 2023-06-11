@@ -27,6 +27,8 @@ export class Tempo extends Construct {
                         {number: 14268},
                         {number: 9411},
                         {number: 3200},
+                        {number: 6832},
+                        {number: 6831},
                     ],
                     args: ['-config.file=/etc/tempo/tempo-config.yaml']
                 }
@@ -44,6 +46,14 @@ export class Tempo extends Construct {
                 {
                     name: 'jaeger',
                     port: 14268
+                },
+                {
+                    name: 'jaeger-thrift',
+                    port: 6832
+                },
+                {
+                    name: 'jaeger-thrift-what',
+                    port: 6831
                 },
                 {
                     name: 'http',
