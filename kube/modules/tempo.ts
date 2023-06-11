@@ -28,7 +28,7 @@ export class Tempo extends Construct {
                         {number: 9411},
                         {number: 3200},
                     ],
-                    args: ['-config.file=/etc/tempo/tempo.yaml']
+                    args: ['-config.file=/etc/tempo/tempo-config.yaml']
                 }
             ]
         });
@@ -53,7 +53,7 @@ export class Tempo extends Construct {
         })
 
         const tempoConfigMap = new kplus.ConfigMap(this, 'Config', {});
-        tempoConfigMap.addFile(options.configFilePath, 'tempo.yaml')
+        tempoConfigMap.addFile(options.configFilePath, 'tempo-config.yaml')
 
         const tempoVolume = kplus.Volume.fromConfigMap(this, 'tempoVolume', tempoConfigMap);
 
