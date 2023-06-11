@@ -15,6 +15,7 @@ import {StorageClassChart} from "./storaceClass";
 
 const SENIK_DB_PORT = 5432;
 const SENIK_DB_NODE_PORT = 30020;
+const SENIK_DB_PVC_NAME = 'senik-db-pvc';
 
 const KAFKA_INTERNAL_PORT = 9092;
 const KAFKA_NODE_PORT = 30019;
@@ -36,7 +37,8 @@ export class MyChart extends Chart {
             user: 'senik',
             password: 'senik',
             dbName: 'senik',
-            nodePortNumber: SENIK_DB_NODE_PORT
+            nodePortNumber: SENIK_DB_NODE_PORT,
+            pvcName: SENIK_DB_PVC_NAME
         });
 
 
@@ -57,7 +59,6 @@ export class MyChart extends Chart {
         });
 
 
-
         new GrafanaDashboards(this, 'grafana-dashboards');
 
 
@@ -75,7 +76,7 @@ export class MyChart extends Chart {
             dbPassword: 'senik',
             dbName: 'senik',
             outboxTopic: 'senik.events',
-            metricsConfigMapName:  kafkaConnectPrometheusConfigMap.name,
+            metricsConfigMapName: kafkaConnectPrometheusConfigMap.name,
             metricsConfigMapKey: KAFKA_CONNECT_METRICS_CONFIG_KEY
         });
 
