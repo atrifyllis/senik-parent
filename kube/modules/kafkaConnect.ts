@@ -123,7 +123,7 @@ export class KafkaConnect extends Construct {
                             },
                             {
                                 name: 'JAEGER_PROPAGATION',
-                                value: 'b3'
+                                value: 'w3c'
                             }
                         ]
                     }
