@@ -121,6 +121,10 @@ export class KafkaConnect extends Construct {
                                 name: 'JAEGER_ENDPOINT',
                                 value: 'http://snk-tempo-service:14268/api/traces'
                             },
+                            {
+                                name: 'JAEGER_PROPAGATION',
+                                value: 'b3'
+                            }
                         ]
                     }
                 },
