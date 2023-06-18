@@ -1,0 +1,19 @@
+apiVersion: k3d.io/v1alpha3 # this will change in the future as we make everything more stable
+kind: Simple # internally, we also have a Cluster config, which is not yet available externally
+name: mycluster # name that you want to give to your cluster (will still be prefixed with `k3d-`)
+kubeAPI: # same as `--api-port myhost.my.domain:6445` (where the name would resolve to 127.0.0.1)
+  hostPort: "6550" # where the Kubernetes API listening port will be mapped to on your host system
+volumes: # repeatable flags are represented as YAML lists
+  - volume: C:\Users\a864133\k3d\volumes:/var/lib/rancher/k3s/storage # same as `--volume '/my/host/path:/path/in/node@server:0;agent:*'`
+    nodeFilters:
+      - all
+ports:
+  - port: 8081:80 # expose loadbalancer port 80
+    nodeFilters:
+      - loadbalancer
+  - port: 30000-30020:30000-30020 # for feature use NodePort services to expose if wanted
+    nodeFilters:
+      - server:0
+  - port: 443:443 # no idea
+    nodeFilters:
+      - loadbalancer

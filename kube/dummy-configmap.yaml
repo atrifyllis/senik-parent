@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-dummy-c8354a6c
+data:
+  dummy: |
+immutable: false
