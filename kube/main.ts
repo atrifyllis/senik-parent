@@ -11,6 +11,7 @@ import {KafkaUi} from "./modules/kafkaUi";
 import {Tempo} from "./modules/tempo";
 import {GrafanaDashboards} from "./modules/grafanaDashboards";
 import {StorageClassChart} from "./storaceClass";
+import {Loki} from "./modules/loki";
 
 
 const SENIK_DB_PORT = 5432;
@@ -25,6 +26,11 @@ const KAFKA_CONNECT_METRICS_CONFIG_KEY = 'kafka-connect-metrics-config.yaml';
 const KAFKA_UI_LOCAL_ADDRESS = 'kafka-ui.127.0.0.1.nip.io';
 
 const TEMPO_ZIPKIN_NODE_PORT = 30017;
+const TEMPO_PORT = 14268;
+
+const LOKI_NODE_PORT = 30018;
+
+const LOKI_PVC_NAME = "loki-pvc";
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
@@ -89,11 +95,18 @@ export class MyChart extends Chart {
             kafkaUiAddress: KAFKA_UI_LOCAL_ADDRESS
         });
 
-        new Tempo(this, 'tempo', {
+        let tempo = new Tempo(this, 'tempo', {
             zipkinNodePort: TEMPO_ZIPKIN_NODE_PORT,
             configFilePath: '../obs/tempo-config.yaml'
         });
 
+        new Loki(this, 'loki', {
+            nodePort: LOKI_NODE_PORT,
+            pvcName: LOKI_PVC_NAME,
+            tempoHost: tempo.serviceName,
+            tempoPort: TEMPO_PORT
+
+        })
     }
 }
 

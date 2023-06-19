@@ -8,6 +8,8 @@ export interface TempoOptions {
 }
 
 export class Tempo extends Construct {
+    serviceName: string;
+
     constructor(scope: Construct, id: string, options: TempoOptions) {
         super(scope, id);
 
@@ -35,7 +37,7 @@ export class Tempo extends Construct {
             ]
         });
 
-        tempoDeployment.exposeViaService({
+        let service = tempoDeployment.exposeViaService({
             serviceType: ServiceType.NODE_PORT,
             ports: [
                 {
@@ -60,7 +62,7 @@ export class Tempo extends Construct {
                     port: 3200
                 }
             ]
-        })
+        });
 
         const tempoConfigMap = new kplus.ConfigMap(this, 'Config', {});
         tempoConfigMap.addFile(options.configFilePath, 'tempo-config.yaml')
@@ -71,5 +73,6 @@ export class Tempo extends Construct {
             readOnly: false,
         })
 
+        this.serviceName = service.name;
     }
 }
