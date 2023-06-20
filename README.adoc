@@ -1,0 +1,36 @@
+== Local development
+
+=== Prerequisites:
+- Docker
+- https://k3d.io/[k3d]
+- https://helm.sh/docs/intro/install/[Helm]
+- NodeJs
+
+=== Create k3d cluster
+`k3d cluster create mycluster --config k3d-config.yaml --servers-memory 6GB`
+
+This command will create simple k3d cluster with one node, exposing several ports
+
+=== Synthesize cdk8s scripts
+
+- Navigate inside /kube folder
+- Run `npm install` (only the first time)
+- Run `npm run import` (only the first time)
+- Run `npm watch` (to continuously watch for changes)
+- Run ``npm synth' (after every change)
+
+This will create all k8s yaml files inside dist directory.
+
+=== Run startup script:
+`/kube/start.sh`
+
+This script will:
+- install Prometheus/Grafana using Helm https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack[kube-prometheus-stack]
+
+- install strimzi-operator using Helm for managed kafka components
+
+- install default Strimzi Pod Monitors using /obs/strimzi-pod-monitor.yaml
+
+- Apply all cdk8s generated scripts, installing all storage related components as well as kafka, kafka-connect, tempo, loki, kafka-ui, and a postgres database used by senik app.
+
+NOTE: cdk8s script are separated between main.ts and storageClass.ts. The storageClass file creates the storage class used in k3d to retain volumes between restarts as well as all PVCs needed for pods to actually retain data between pod deletions.
