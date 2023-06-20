@@ -1,6 +1,7 @@
 apiVersion: k3d.io/v1alpha5 # this will change in the future as we make everything more stable
 kind: Simple # internally, we also have a Cluster config, which is not yet available externally
-name: mycluster # name that you want to give to your cluster (will still be prefixed with `k3d-`)
+metadata:
+  name: mycluster # name that you want to give to your cluster (will still be prefixed with `k3d-`)
 kubeAPI: # same as `--api-port myhost.my.domain:6445` (where the name would resolve to 127.0.0.1)
   hostPort: "6550" # where the Kubernetes API listening port will be mapped to on your host system
 volumes: # repeatable flags are represented as YAML lists
