@@ -1,6 +1,6 @@
 #! /bin/bash
 
-helm install prom prometheus-community/kube-prometheus-stack --values ../obs/prom-stack-values.yaml
+helm install prom prometheus-community/kube-prometheus-stack --values ../obs/prom-stack-values.yaml --namespace prom --create-namespace
 
 helm install strimzi-operator strimzi/strimzi-kafka-operator
 

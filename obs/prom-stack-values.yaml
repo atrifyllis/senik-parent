@@ -11,6 +11,10 @@ prometheus:
         metrics_path: '/actuator/prometheus'
         static_configs:
           - targets: [ 'host.k3d.internal:8080' ] # TODO no security here
+      - job_name: 'senik-admin'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: [ 'host.k3d.internal:8081' ] # TODO no security here
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -46,7 +50,7 @@ grafana:
       type: loki
       access: proxy
       orgId: 1
-      url: http://loki-headless:3100
+      url: http://loki-headless.default.svc.cluster.local:3100
       basicAuth: false
       editable: false
       jsonData:
@@ -59,7 +63,7 @@ grafana:
       type: tempo
       access: proxy
       orgId: 1
-      url: http://snk-tempo-service:3200
+      url: http://snk-tempo-service.default.svc.cluster.local:3200
       basicAuth: false
       version: 1
       editable: false

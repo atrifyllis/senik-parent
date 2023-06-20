@@ -25,6 +25,9 @@ export class StorageClassChart extends Chart {
 
         // TODO I could not find a way to keep the PVC created by grafana helm chart after helm uninstall...
         new kplus.PersistentVolumeClaim(this, `prom-grafana`, {
+            metadata: {
+                namespace: 'prom'
+            },
             storage: Size.gibibytes(2),
             accessModes: [
                 PersistentVolumeAccessMode.READ_WRITE_ONCE
