@@ -50,7 +50,7 @@ grafana:
       type: loki
       access: proxy
       orgId: 1
-      url: http://loki-headless.default.svc.cluster.local:3100
+      url: http://snk-loki-service.default.svc.cluster.local:3100
       basicAuth: false
       editable: false
       jsonData:
