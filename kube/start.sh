@@ -4,7 +4,7 @@ helm install prom prometheus-community/kube-prometheus-stack --values ../obs/pro
 
 helm install strimzi-operator strimzi/strimzi-kafka-operator
 
-kubectl apply -f strimzi-pod-monitor.yaml
+kubectl apply -f ../obs/strimzi-pod-monitor.yaml
 
 #helm install loki grafana/loki --values ../obs/loki-values.yaml
 
