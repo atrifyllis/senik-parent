@@ -7,6 +7,7 @@ import {PersistentVolumeAccessMode} from 'cdk8s-plus-25';
 
 const SENIK_DB_PVC_NAME = 'senik-db-pvc';
 const LOKI_PVC_NAME = 'loki-pvc';
+const TEMPO_PVC_NAME = 'tempo-pvc';
 
 
 export class StorageClassChart extends Chart {
@@ -51,6 +52,18 @@ export class StorageClassChart extends Chart {
         new kplus.PersistentVolumeClaim(this, LOKI_PVC_NAME, {
             metadata: {
                 name: LOKI_PVC_NAME,
+                finalizers: ['kubernetes.io/pvc-protection']
+            },
+            storage: Size.gibibytes(1),
+            accessModes: [
+                PersistentVolumeAccessMode.READ_WRITE_ONCE
+            ],
+            storageClassName: 'local-path-retain',
+        });
+
+        new kplus.PersistentVolumeClaim(this, TEMPO_PVC_NAME, {
+            metadata: {
+                name: TEMPO_PVC_NAME,
                 finalizers: ['kubernetes.io/pvc-protection']
             },
             storage: Size.gibibytes(1),

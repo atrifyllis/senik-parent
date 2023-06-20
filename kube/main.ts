@@ -31,6 +31,8 @@ const TEMPO_PORT = 14268;
 const LOKI_NODE_PORT = 30018;
 
 const LOKI_PVC_NAME = "loki-pvc";
+const TEMPO_PVC_NAME = 'tempo-pvc';
+
 
 export class MyChart extends Chart {
     constructor(scope: Construct, id: string, props: ChartProps) {
@@ -97,7 +99,8 @@ export class MyChart extends Chart {
 
         let tempo = new Tempo(this, 'tempo', {
             zipkinNodePort: TEMPO_ZIPKIN_NODE_PORT,
-            configFilePath: '../obs/tempo-config.yaml'
+            configFilePath: '../obs/tempo-config.yaml',
+            pvcName: TEMPO_PVC_NAME
         });
 
         new Loki(this, 'loki', {

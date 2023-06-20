@@ -1,10 +1,11 @@
 import {Construct} from "constructs";
 import * as kplus from "cdk8s-plus-25";
-import {ServiceType} from "cdk8s-plus-25";
+import {PersistentVolumeClaim, ServiceType} from "cdk8s-plus-25";
 
 export interface TempoOptions {
-    zipkinNodePort: number; // since zipkin will be accessed from host
-    configFilePath: string;
+    readonly zipkinNodePort: number; // since zipkin will be accessed from host
+    readonly configFilePath: string;
+    readonly pvcName: string;
 }
 
 export class Tempo extends Construct {
@@ -72,6 +73,15 @@ export class Tempo extends Construct {
         tempoDeployment.containers[0].mount('/etc/tempo', tempoVolume, {
             readOnly: false,
         })
+
+        tempoDeployment.containers[0].mount(
+            '/etc/tempo',
+            kplus.Volume.fromPersistentVolumeClaim(
+                this,
+                `${id}-volume`,
+                PersistentVolumeClaim.fromClaimName(this, `${options.pvcName}-volume`, options.pvcName)),
+        );
+
 
         this.serviceName = service.name;
     }
