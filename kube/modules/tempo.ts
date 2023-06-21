@@ -70,8 +70,9 @@ export class Tempo extends Construct {
 
         const tempoVolume = kplus.Volume.fromConfigMap(this, 'tempoVolume', tempoConfigMap);
 
-        tempoDeployment.containers[0].mount('/etc/tempo', tempoVolume, {
+        tempoDeployment.containers[0].mount('/etc/tempo/tempo-config.yaml', tempoVolume, {
             readOnly: false,
+            subPath: 'tempo-config.yaml'
         })
 
         tempoDeployment.containers[0].mount(
