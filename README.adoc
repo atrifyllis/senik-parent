@@ -1,12 +1,14 @@
 == Local development
 
 === Prerequisites:
+
 - Docker
 - https://k3d.io/[k3d]
 - https://helm.sh/docs/intro/install/[Helm]
 - NodeJs
 
 === Create k3d cluster
+
 `k3d cluster create mycluster --config k3d-config.yaml --servers-memory 6GB`
 
 This command will create simple k3d cluster with one node, exposing several ports
@@ -22,6 +24,15 @@ This command will create simple k3d cluster with one node, exposing several port
 This will create all k8s yaml files inside dist directory.
 
 === Run startup script:
+
+First time you run this, in fresh helm installation, you must first add repos:
+`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts`
+`helm repo add strimzi https://strimzi.io/charts/`
+And update them:
+`helm repo update`
+
+Now you can run the script:
+
 `/kube/start.sh`
 
 This script will:
@@ -34,7 +45,8 @@ This script will:
 
 - Apply all cdk8s generated scripts, installing all storage related components as well as kafka, kafka-connect, tempo, loki, kafka-ui, and a postgres database used by senik app.
 
-NOTE: cdk8s script are separated between main.ts and storageClass.ts. The storageClass file creates the storage class used in k3d to retain volumes between restarts as well as all PVCs needed for pods to actually retain data between pod deletions.
+NOTE: cdk8s script are separated between main.ts and storageClass.ts.
+The storageClass file creates the storage class used in k3d to retain volumes between restarts as well as all PVCs needed for pods to actually retain data between pod deletions.
 
 NOTE: When making changes to cdk8s scripts (and thus to k8s yaml files) running:
 `kubectl apply -f dist/0001-snk` should usually be enough, unless you make changes to PVCs then you have to also run: `kubectl apply -f dist/0000-snk-storage`.
